@@ -162,7 +162,7 @@ namespace librealsense
         named_mutex::named_mutex(const std::string& device_path, unsigned timeout)
             : _device_path(device_path),
               _timeout(timeout), // TODO: try to lock with timeout
-              _fildes( open( _device_path.c_str(), O_RDWR, 0 ) ),
+              _fildes( open( _device_path.c_str(), O_RDWR | O_CLOEXEC, 0 ) ),
               _lock_counter(0)
         {
             if( _fildes < 0)
@@ -499,7 +499,7 @@ namespace librealsense
         {
             // RAII to handle exceptions
             std::unique_ptr<int, std::function<void(int*)> > fd(
-                        new int (open(dev_name.c_str(), O_RDWR | O_NONBLOCK, 0)),
+                        new int (open(dev_name.c_str(), O_RDWR | O_NONBLOCK | O_CLOEXEC, 0)),
                         [](int* d){ if (d && (*d)) {::close(*d); } delete d; });
 
             if(*fd < 0)
@@ -887,7 +887,7 @@ namespace librealsense
 
         bool v4l_uvc_device::is_format_supported_on_node(const std::string& dev_name, std::string v4l_4cc_fmt)
         {
-            int fd = open(dev_name.c_str(), O_RDWR);
+            int fd = open(dev_name.c_str(), O_RDWR | O_CLOEXEC);
             if (fd < 0)
                 throw linux_backend_exception("Mipi device format could not be grabbed");
 
@@ -951,7 +951,7 @@ namespace librealsense
             // device PID
             uint16_t device_pid = 0;
 
-            int fd = open(dev_name.c_str(), O_RDWR);
+            int fd = open(dev_name.c_str(), O_RDWR | O_CLOEXEC);
             if (fd < 0)
                 throw linux_backend_exception("Mipi device PID could not be found");
 
@@ -1024,7 +1024,7 @@ namespace librealsense
                                                   std::string& bus_info, std::string& card)
         {
             struct v4l2_capability vcap;
-            int fd = open(dev_name.c_str(), O_RDWR);
+            int fd = open(dev_name.c_str(), O_RDWR | O_CLOEXEC);
             if (fd < 0)
                 throw linux_backend_exception("Mipi device capability could not be grabbed");
             int err = ioctl(fd, VIDIOC_QUERYCAP, &vcap);
@@ -1140,7 +1140,7 @@ namespace librealsense
 
             for (const auto& dfu_device_path: dfu_device_paths) {
                 auto mipi_dfu_chardev = "/dev/" + dfu_device_path;
-                int vfd = open(mipi_dfu_chardev.c_str(), O_RDONLY | O_NONBLOCK);
+                int vfd = open(mipi_dfu_chardev.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
                 if (vfd >= 0) {
                     // Use legacy DFU device node used in firmware_update_manager
                     info.dfu_device_path = mipi_dfu_chardev;
@@ -1232,7 +1232,7 @@ namespace librealsense
 
                     // Get Video node
                     // Check if file on video_path is exists
-                    vfd = open(video_path.c_str(), O_RDONLY | O_NONBLOCK);
+                    vfd = open(video_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
 
                     if (vfd < 0) // file does not exists, continue to the next one
                         continue;
@@ -1249,7 +1249,7 @@ namespace librealsense
                     }
 
                     // Get DFU node for MIPI camera
-                    vfd = open(dfu_device_path.c_str(), O_RDONLY | O_NONBLOCK);
+                    vfd = open(dfu_device_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
 
                     if (vfd >= 0) {
                         ::close(vfd); // file exists, close file and continue to assign it
@@ -1262,7 +1262,7 @@ namespace librealsense
                     mipi_rs_enum_nodes.emplace_back(info, video_path);
                     // Get metadata node
                     // Check if file on video_md_path is exists
-                    vfd = open(video_md_path.c_str(), O_RDONLY | O_NONBLOCK);
+                    vfd = open(video_md_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
 
                     if (vfd < 0) // file does not exists, continue to the next one
                         continue;
@@ -2478,11 +2478,11 @@ namespace librealsense
 
         void v4l_uvc_device::map_device_descriptor()
         {
-            _fd = open(_name.c_str(), O_RDWR | O_NONBLOCK, 0);
+            _fd = open(_name.c_str(), O_RDWR | O_NONBLOCK | O_CLOEXEC, 0);
             if(_fd < 0)
                 throw linux_backend_exception(rsutils::string::from() <<__FUNCTION__ << " Cannot open '" << _name);
 
-            if (pipe(_stop_pipe_fd) < 0)
+            if (pipe2(_stop_pipe_fd, O_CLOEXEC) < 0)
                 throw linux_backend_exception(rsutils::string::from() <<__FUNCTION__ << " Cannot create pipe!");
 
             if (_fds.size())
@@ -2720,7 +2720,7 @@ namespace librealsense
             if (_md_fd>0)
                 throw linux_backend_exception(rsutils::string::from() << _md_name << " descriptor is already opened");
 
-            _md_fd = open(_md_name.c_str(), O_RDWR | O_NONBLOCK, 0);
+            _md_fd = open(_md_name.c_str(), O_RDWR | O_NONBLOCK | O_CLOEXEC, 0);
             if(_md_fd < 0)
             {
                 return;  // Does not throw, MIPI device metadata not received through UVC, no metadata here may be valid

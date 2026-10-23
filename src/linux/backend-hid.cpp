@@ -233,7 +233,7 @@ namespace librealsense
             auto retries = 0;
             while(++retries < max_retries)
             {
-                if ((_fd = open(read_device_path_str.c_str(), O_RDONLY | O_NONBLOCK)) > 0)
+                if ((_fd = open(read_device_path_str.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC)) > 0)
                     break;
 
                 LOG_WARNING("open() failed!");
@@ -246,7 +246,7 @@ namespace librealsense
                 throw linux_backend_exception("open() failed with all retries!");
             }
 
-            if (pipe(_stop_pipe_fd) < 0)
+            if (pipe2(_stop_pipe_fd, O_CLOEXEC) < 0)
             {
                 close(_fd);
                 enable(false);
@@ -357,7 +357,7 @@ namespace librealsense
 
         std::vector<uint8_t> hid_custom_sensor::read_report(const std::string& name_report_path)
         {
-            auto fd = open(name_report_path.c_str(), O_RDONLY | O_NONBLOCK);
+            auto fd = open(name_report_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
             if (fd < 0)
                 throw linux_backend_exception("Failed to open report!");
 
@@ -514,7 +514,7 @@ namespace librealsense
             auto retries = 0;
             while(++retries < max_retries)
             {
-                if ((_fd = open(iio_read_device_path_str.c_str(), O_RDONLY | O_NONBLOCK)) > 0)
+                if ((_fd = open(iio_read_device_path_str.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC)) > 0)
                     break;
 
                 LOG_WARNING("open() failed!");
@@ -527,7 +527,7 @@ namespace librealsense
                 throw linux_backend_exception("open() failed with all retries!");
             }
 
-            if (pipe(_stop_pipe_fd) < 0)
+            if (pipe2(_stop_pipe_fd, O_CLOEXEC) < 0)
             {
                 close(_fd);
                 _channels.clear();
@@ -675,7 +675,7 @@ namespace librealsense
             iio_read_device_path << "/dev/" << IIO_DEVICE_PREFIX << _iio_device_number;
 
             std::unique_ptr<int, std::function<void(int*)> > fd(
-                        new int (_fd = open(iio_read_device_path.str().c_str(), O_RDONLY | O_NONBLOCK)),
+                        new int (_fd = open(iio_read_device_path.str().c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC)),
                         [&](int* d){ if (d && (*d)) { _fd = ::close(*d); } delete d; });
 
             if (!(*fd > 0))
